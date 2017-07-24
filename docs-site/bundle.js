@@ -38645,6 +38645,8 @@
 	 * General datepicker component.
 	 */
 
+	var INPUT_ERR_1 = 'Date input not valid.';
+
 	var DatePicker = function (_React$Component) {
 	  _inherits(DatePicker, _React$Component);
 
@@ -38666,6 +38668,7 @@
 	        onSelect: function onSelect() {},
 	        onClickOutside: function onClickOutside() {},
 	        onMonthChange: function onMonthChange() {},
+	        onInputError: function onInputError() {},
 
 	        utcOffset: (0, _moment2.default)().utcOffset(),
 	        monthsShown: 1,
@@ -38741,7 +38744,9 @@
 	    };
 
 	    _this.handleCalendarClickOutside = function (event) {
-	      _this.setOpen(false);
+	      if (!_this.props.inline) {
+	        _this.setOpen(false);
+	      }
 	      _this.props.onClickOutside(event);
 	      if (_this.props.withPortal) {
 	        event.preventDefault();
@@ -38833,18 +38838,26 @@
 	        return;
 	      }
 	      var copy = (0, _moment2.default)(_this.state.preSelection);
+	      var inputOk = _moment2.default.isMoment(_this.state.preSelection) || _moment2.default.isDate(_this.state.preSelection);
 	      if (eventKey === 'Enter') {
 	        event.preventDefault();
-	        if (_moment2.default.isMoment(_this.state.preSelection) || _moment2.default.isDate(_this.state.preSelection)) {
+	        if (inputOk) {
 	          _this.handleSelect(copy, event);
 	        } else {
 	          _this.setOpen(false);
+	          _this.props.onInputError({ code: 1, msg: INPUT_ERR_1 });
 	        }
 	      } else if (eventKey === 'Escape') {
 	        event.preventDefault();
 	        _this.setOpen(false);
+	        if (!inputOk) {
+	          _this.props.onInputError({ code: 1, msg: INPUT_ERR_1 });
+	        }
 	      } else if (eventKey === 'Tab') {
 	        _this.setOpen(false);
+	        if (!inputOk) {
+	          _this.props.onInputError({ code: 1, msg: INPUT_ERR_1 });
+	        }
 	      }
 	      if (!_this.props.disabledKeyboardNavigation) {
 	        var newSelection = void 0;
@@ -38983,6 +38996,13 @@
 	  }
 
 	  _createClass(DatePicker, [{
+	    key: 'componentWillReceiveProps',
+	    value: function componentWillReceiveProps(nextProps) {
+	      if (this.props.inline && !this.props.selected.isSame(nextProps.selected, 'month')) {
+	        this.setPreSelection(nextProps.selected);
+	      }
+	    }
+	  }, {
 	    key: 'componentWillUnmount',
 	    value: function componentWillUnmount() {
 	      this.clearPreventFocusTimeout();
@@ -39071,6 +39091,7 @@
 	  onFocus: _propTypes2.default.func,
 	  onKeyDown: _propTypes2.default.func,
 	  onMonthChange: _propTypes2.default.func,
+	  onInputError: _propTypes2.default.func,
 	  openToDate: _propTypes2.default.object,
 	  peekNextMonth: _propTypes2.default.bool,
 	  placeholderText: _propTypes2.default.string,
@@ -57572,11 +57593,7 @@
 	            top = _this$state$data$offs.top,
 	            left = _this$state$data$offs.left;
 
-	        if (!left) {
-	          return { top: +top };
-	        } else {
-	          return { left: +left };
-	        }
+	        return { top: +top, left: +left };
 	      }
 	    }, _temp), _possibleConstructorReturn(_this, _ret);
 	  }
@@ -57603,7 +57620,7 @@
 	        this._updatePopper();
 	      }
 
-	      if (lastProps.children !== this.props.children) {
+	      if (this._popper && lastProps.children !== this.props.children) {
 	        this._popper.scheduleUpdate();
 	      }
 	    }
