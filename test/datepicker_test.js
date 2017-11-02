@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import TestUtils from 'react-addons-test-utils'
-import { mount } from 'enzyme'
+import { mount, ReactWrapper } from 'enzyme'
 import defer from 'lodash/defer'
 import DatePicker from '../src/datepicker.jsx'
 import Day from '../src/day'
@@ -24,25 +24,25 @@ describe('DatePicker', () => {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker />
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     TestUtils.Simulate.focus(ReactDOM.findDOMNode(dateInput))
-    expect(datePicker.refs.calendar).to.exist
+    expect(datePicker.calendar).to.exist
   })
 
   it('should show the calendar when clicking on the date input', () => {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker />
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     TestUtils.Simulate.click(ReactDOM.findDOMNode(dateInput))
-    expect(datePicker.refs.calendar).to.exist
+    expect(datePicker.calendar).to.exist
   })
 
   it('should not set open state when it is disabled and gets clicked', function () {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker disabled/>
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     TestUtils.Simulate.click(ReactDOM.findDOMNode(dateInput))
     expect(datePicker.state.open).to.be.false
   })
@@ -51,13 +51,13 @@ describe('DatePicker', () => {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker />
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     var focusSpy = sandbox.spy(dateInput, 'focus')
     TestUtils.Simulate.focus(ReactDOM.findDOMNode(dateInput))
     TestUtils.Simulate.blur(ReactDOM.findDOMNode(dateInput))
 
     defer(() => {
-      expect(datePicker.refs.calendar).to.exist
+      expect(datePicker.calendar).to.exist
       assert(focusSpy.calledOnce, 'should refocus the date input')
       done()
     })
@@ -72,12 +72,15 @@ describe('DatePicker', () => {
           dropdownMode="select"
           onBlur={onBlurSpy}/>
     )
-    const dateInput = datePicker.ref('input')
-    const focusSpy = sandbox.spy(dateInput.get(0), 'focus')
+    const dateInput = datePicker.instance().input
+    const dateInputWrapper = new ReactWrapper(dateInput, dateInput)
+    const focusSpy = sandbox.spy(dateInput, 'focus')
 
-    dateInput.simulate('focus')
-    const yearSelect = datePicker.ref('calendar').find('.react-datepicker__year-select')
-    dateInput.simulate('blur')
+    dateInputWrapper.simulate('focus')
+    const calendar = datePicker.instance().calendar
+    const calendarWrapper = new ReactWrapper(calendar, calendar)
+    const yearSelect = calendarWrapper.find('.react-datepicker__year-select')
+    dateInputWrapper.simulate('blur')
     yearSelect.simulate('focus')
 
     defer(() => {
@@ -91,17 +94,17 @@ describe('DatePicker', () => {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker />
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     TestUtils.Simulate.focus(ReactDOM.findDOMNode(dateInput))
-    TestUtils.Simulate.click(ReactDOM.findDOMNode(datePicker.refs.calendar))
-    expect(datePicker.refs.calendar).to.exist
+    TestUtils.Simulate.click(ReactDOM.findDOMNode(datePicker.calendar))
+    expect(datePicker.calendar).to.exist
   })
 
   it('should not set open state when it is disabled and gets clicked', function () {
     var datePicker = TestUtils.renderIntoDocument(
         <DatePicker disabled/>
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     TestUtils.Simulate.click(ReactDOM.findDOMNode(dateInput))
     expect(datePicker.state.open).to.be.false
   })
@@ -110,31 +113,73 @@ describe('DatePicker', () => {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker />
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     TestUtils.Simulate.focus(ReactDOM.findDOMNode(dateInput))
-    var day = TestUtils.scryRenderedComponentsWithType(datePicker.refs.calendar, Day)[0]
+    var day = TestUtils.scryRenderedComponentsWithType(datePicker.calendar, Day)[0]
     TestUtils.Simulate.click(ReactDOM.findDOMNode(day))
-    expect(datePicker.refs.calendar).to.not.exist
+    expect(datePicker.calendar).to.not.exist
   })
 
-  it('should hide the calendar when the pressing enter in the date input', () => {
+  it('should not hide the calendar when clicking a day on the calendar and shouldCloseOnSelect prop is false', () => {
+    var datePicker = TestUtils.renderIntoDocument(
+      <DatePicker shouldCloseOnSelect={false}/>
+    )
+    var dateInput = datePicker.input
+    TestUtils.Simulate.focus(ReactDOM.findDOMNode(dateInput))
+    var day = TestUtils.scryRenderedComponentsWithType(datePicker.calendar, Day)[0]
+    TestUtils.Simulate.click(ReactDOM.findDOMNode(day))
+    expect(datePicker.state.open).to.be.true
+  })
+
+  it('should not hide the calendar when selecting a day in the calendar with Enter press, and shouldCloseOnSelect prop is false', () => {
+    var data = getOnInputKeyDownStuff({shouldCloseOnSelect: false})
+    var dateInput = data.datePicker.input
+
+    TestUtils.Simulate.keyDown(data.nodeInput, {key: 'ArrowUp', keyCode: 38, which: 38})
+    TestUtils.Simulate.keyDown(ReactDOM.findDOMNode(dateInput), { key: 'Enter' })
+    expect(data.datePicker.state.open).to.be.true
+  })
+
+  it('should update the preSelection state when a day is selected with Enter press', () => {
+    var data = getOnInputKeyDownStuff({shouldCloseOnSelect: false})
+    var dateInput = data.datePicker.input
+    TestUtils.Simulate.keyDown(data.nodeInput, {key: 'ArrowDown', keyCode: 40, which: 40})
+    TestUtils.Simulate.keyDown(ReactDOM.findDOMNode(dateInput), { key: 'Enter' })
+    TestUtils.Simulate.keyDown(data.nodeInput, {key: 'ArrowDown', keyCode: 40, which: 40})
+    data.copyM.add(2, 'weeks')
+    expect(data.datePicker.state.preSelection.format(data.testFormat)).to.equal(data.copyM.format(data.testFormat))
+  })
+
+  it('should update the preSelection state when a day is selected with mouse click', () => {
+    var data = getOnInputKeyDownStuff({shouldCloseOnSelect: false})
+    var day = TestUtils.findRenderedDOMComponentWithClass(data.datePicker.calendar, 'react-datepicker__day--today')
+    TestUtils.Simulate.keyDown(data.nodeInput, {key: 'ArrowLeft', keyCode: 37, which: 37})
+    TestUtils.Simulate.keyDown(data.nodeInput, {key: 'ArrowLeft', keyCode: 37, which: 37})
+    TestUtils.Simulate.click(ReactDOM.findDOMNode(day))
+
+    TestUtils.Simulate.keyDown(data.nodeInput, {key: 'ArrowDown', keyCode: 40, which: 40})
+    data.copyM.add(1, 'weeks')
+    expect(data.datePicker.state.preSelection.format(data.testFormat)).to.equal(data.copyM.format(data.testFormat))
+  })
+
+  it('should hide the calendar when pressing enter in the date input', () => {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker />
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     TestUtils.Simulate.focus(ReactDOM.findDOMNode(dateInput))
     TestUtils.Simulate.keyDown(ReactDOM.findDOMNode(dateInput), { key: 'Enter' })
-    expect(datePicker.refs.calendar).to.not.exist
+    expect(datePicker.calendar).to.not.exist
   })
 
   it('should hide the calendar when the pressing escape in the date input', () => {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker />
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     TestUtils.Simulate.focus(ReactDOM.findDOMNode(dateInput))
     TestUtils.Simulate.keyDown(ReactDOM.findDOMNode(dateInput), { key: 'Escape' })
-    expect(datePicker.refs.calendar).to.not.exist
+    expect(datePicker.calendar).to.not.exist
   })
 
   it('should hide the calendar when tabbing from the date input', () => {
@@ -142,11 +187,11 @@ describe('DatePicker', () => {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker onBlur={onBlurSpy} />
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     TestUtils.Simulate.focus(ReactDOM.findDOMNode(dateInput))
     TestUtils.Simulate.keyDown(ReactDOM.findDOMNode(dateInput), { key: 'Tab' })
     TestUtils.Simulate.blur(ReactDOM.findDOMNode(dateInput))
-    expect(datePicker.refs.calendar).to.not.exist
+    expect(datePicker.calendar).to.not.exist
     assert(onBlurSpy.calledOnce, 'should call onBlur')
   })
 
@@ -154,7 +199,7 @@ describe('DatePicker', () => {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker />
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     expect(ReactDOM.findDOMNode(dateInput).className).to.not.contain('react-datepicker-ignore-onclickoutside')
   })
 
@@ -162,7 +207,7 @@ describe('DatePicker', () => {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker />
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     TestUtils.Simulate.focus(ReactDOM.findDOMNode(dateInput))
     expect(ReactDOM.findDOMNode(dateInput).className).to.contain('react-datepicker-ignore-onclickoutside')
   })
@@ -232,7 +277,7 @@ describe('DatePicker', () => {
     )
 
     expect(function () { TestUtils.findRenderedComponentWithType(datePicker, PopperComponent) }).to.throw()
-    expect(datePicker.refs.calendar).to.exist
+    expect(datePicker.calendar).to.exist
   })
 
   it('should ignore disable prop when inline prop is set', () => {
@@ -240,18 +285,18 @@ describe('DatePicker', () => {
       <DatePicker inline disabled />
     )
 
-    expect(datePicker.refs.calendar).to.exist
+    expect(datePicker.calendar).to.exist
   })
 
   it('should render Calendar in portal when withPortal is set and input has focus', () => {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker withPortal />
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     TestUtils.Simulate.focus(ReactDOM.findDOMNode(dateInput))
 
     expect(function () { TestUtils.findRenderedDOMComponentWithClass(datePicker, 'react-datepicker__portal') }).to.not.throw()
-    expect(datePicker.refs.calendar).to.exist
+    expect(datePicker.calendar).to.exist
   })
 
   it('should not render Calendar when withPortal is set and no focus is given to input', () => {
@@ -260,7 +305,7 @@ describe('DatePicker', () => {
     )
 
     expect(function () { TestUtils.findRenderedDOMComponentWithClass(datePicker, 'react-datepicker__portal') }).to.throw()
-    expect(datePicker.refs.calendar).not.to.exist
+    expect(datePicker.calendar).not.to.exist
   })
 
   function getOnInputKeyDownStuff (opts) {
@@ -278,9 +323,10 @@ describe('DatePicker', () => {
           excludeDates={opts.excludeDates}
           filterDate={opts.filterDate}
           minDate={opts.minDate}
-          maxDate={opts.maxDate}/>
+          maxDate={opts.maxDate}
+          shouldCloseOnSelect={opts.shouldCloseOnSelect}/>
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     var nodeInput = ReactDOM.findDOMNode(dateInput)
     TestUtils.Simulate.focus(nodeInput)
     return {
@@ -438,7 +484,7 @@ describe('DatePicker', () => {
     var datePicker = TestUtils.renderIntoDocument(
       <DatePicker selected={m} onChange={callback} disabledKeyboardNavigation/>
     )
-    var dateInput = datePicker.refs.input
+    var dateInput = datePicker.input
     var nodeInput = ReactDOM.findDOMNode(dateInput)
     TestUtils.Simulate.focus(nodeInput)
     return {
@@ -500,7 +546,7 @@ describe('DatePicker', () => {
           selected={moment('2016-11-22')}
           onChange={handleChange} />
     )
-    var input = ReactDOM.findDOMNode(datePicker.refs.input)
+    var input = ReactDOM.findDOMNode(datePicker.input)
     input.value = ''
     TestUtils.Simulate.change(input)
     expect(cleared).to.be.true
@@ -544,7 +590,7 @@ describe('DatePicker', () => {
         <DatePicker selected={moment()} onChange={sandbox.spy()} onChangeRaw={onChangeRawSpy}/>
     )
     expect(onChangeRawSpy.called).to.be.false
-    const input = ReactDOM.findDOMNode(datePicker.refs.input)
+    const input = ReactDOM.findDOMNode(datePicker.input)
     input.value = inputValue
     TestUtils.Simulate.change(input)
     expect(onChangeRawSpy.calledOnce).to.be.true
@@ -613,6 +659,11 @@ describe('DatePicker', () => {
       <DatePicker/>
     )
     expect(datePicker.state('preSelection').format('YYYY-MM-DD')).to.equal(moment().format('YYYY-MM-DD'))
+  })
+  it('should support an initial null `selected` value in inline mode', () => {
+    const datePicker = mount(<DatePicker inline selected={null} />)
+
+    expect(() => datePicker.setProps({ selected: moment() })).to.not.throw()
   })
   it('should switch month in inline mode immediately', () => {
     const selected = moment()

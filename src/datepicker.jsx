@@ -84,7 +84,8 @@ export default class DatePicker extends React.Component {
     value: PropTypes.string,
     weekLabel: PropTypes.string,
     withPortal: PropTypes.bool,
-    yearDropdownItemNumber: PropTypes.number
+    yearDropdownItemNumber: PropTypes.number,
+    shouldCloseOnSelect: PropTypes.bool
   }
 
   static get defaultProps () {
@@ -105,7 +106,8 @@ export default class DatePicker extends React.Component {
       onInputError () {},
       utcOffset: moment().utcOffset(),
       monthsShown: 1,
-      withPortal: false
+      withPortal: false,
+      shouldCloseOnSelect: true
     }
   }
 
@@ -115,7 +117,9 @@ export default class DatePicker extends React.Component {
   }
 
   componentWillReceiveProps (nextProps) {
-    if (this.props.inline && !this.props.selected.isSame(nextProps.selected, 'month')) {
+    const currentMonth = this.props.selected && this.props.selected.month()
+    const nextMonth = nextProps.selected && nextProps.selected.month()
+    if (this.props.inline && currentMonth !== nextMonth) {
       this.setPreSelection(nextProps.selected)
     }
   }
@@ -152,7 +156,7 @@ export default class DatePicker extends React.Component {
   }
 
   setFocus = () => {
-    this.refs.input.focus()
+    this.input.focus()
   }
 
   setOpen = (open) => {
@@ -229,7 +233,9 @@ export default class DatePicker extends React.Component {
       }
     )
     this.setSelected(date, event)
-    if (!this.props.inline) {
+    if (!this.props.shouldCloseOnSelect) {
+      this.setPreSelection(date)
+    } else if (!this.props.inline) {
       this.setOpen(false)
     }
   }
@@ -294,6 +300,7 @@ export default class DatePicker extends React.Component {
       event.preventDefault()
       if (this.inputOk()) {
         this.handleSelect(copy, event)
+        !this.props.shouldCloseOnSelect && this.setPreSelection(copy)
       } else {
         this.setOpen(false)
         this.props.onInputError({ code: 1, msg: INPUT_ERR_1 })
@@ -306,8 +313,7 @@ export default class DatePicker extends React.Component {
       }
     } else if (eventKey === 'Tab') {
       this.setOpen(false)
-    }
-    if (!this.props.disabledKeyboardNavigation) {
+    } else if (!this.props.disabledKeyboardNavigation) {
       let newSelection
       switch (eventKey) {
         case 'ArrowLeft':
@@ -357,7 +363,7 @@ export default class DatePicker extends React.Component {
       return null
     }
     return <WrappedCalendar
-        ref="calendar"
+        ref={(elem) => { this.calendar = elem }}
         locale={this.props.locale}
         dateFormat={this.props.dateFormatCalendar}
         useWeekdaysShort={this.props.useWeekdaysShort}
@@ -413,7 +419,7 @@ export default class DatePicker extends React.Component {
         : safeDateFormat(this.props.selected, this.props)
 
     return React.cloneElement(customInput, {
-      ref: 'input',
+      ref: (input) => { this.input = input },
       value: inputValue,
       onBlur: this.handleBlur,
       onChange: this.handleChange,
