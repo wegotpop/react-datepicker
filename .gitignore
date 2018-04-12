@@ -4,7 +4,7 @@ npm-debug.log
 .DS_Store
 .idea
 .vscode
-dist
+;dist
 lib
 es
 tmp
