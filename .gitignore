@@ -5,8 +5,8 @@ npm-debug.log
 .idea
 .vscode
 ;dist
-lib
-es
+;lib
+;es
 tmp
 coverage
 docs-site/bundle.js
